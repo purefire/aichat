@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Quick access to AI Chat</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f2f2f2;
+      }
+
+      #container {
+        max-width: 500px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0px 0px 10px #888888;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 10px;
+      }
+
+      input[type="text"],
+      input[type="password"] {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        box-sizing: border-box;
+      }
+
+      button {
+        background-color: #4CAF50;
+        color: white;
+        padding: 10px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        margin-bottom: 20px;
+      }
+
+      button:hover {
+        background-color: #3e8e41;
+      }
+
+      #searchForm {
+        display: none;
+      }
+
+      #results {
+        margin-top: 20px;
+      }
+
+      #results div {
+        border-bottom: 1px solid #ccc;
+        padding: 10px;
+      }
+    </style>
+    <script>
+      var _LoadingHtml = '<div id="loadingDiv" style="display: none; "><div id="over" style=" position: fixed;top: 0;left: 0; width: 100%;height: 100%; background-color: #f5f5f5;opacity:0.5;z-index: 1000;"></div><div id="layout" style="position: fixed;top: 40%; left: 40%;width: 20%; height: 20%;  z-index: 1001;text-align:center;"><img src="/static/img/loading.gif" /></div></div>';
+      var authToken;
+      var count=0; 
+      
+      function completeLoading() { document.getElementById("loadingDiv").style.display="none";}
+      function showLoading(){document.getElementById("loadingDiv").style.display="block";}
+      document.write(_LoadingHtml);
+ 
+      function login() {
+        // Get the username and password from the input fields
+        var username = document.getElementById("username").value;
+        var password = document.getElementById("password").value;
+
+        // Send an authentication request with the username and password
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "https://ai.jing.lv:666/login/", true);
+        xhr.setRequestHeader("Accept", "application/json");
+        xhr.setRequestHeader("Cache-Control", "no-cache");
+        xhr.setRequestHeader("Pragma", "no-cache");
+        xhr.setRequestHeader("Content-Type", "application/json;charset=utf-8");
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            // Parse the JSON response
+            var response = JSON.parse(xhr.responseText);
+            authToken = response.token;
+            // Hide the login form and display the search form
+            document.getElementById("loginForm").style.display = "none";
+            document.getElementById("searchForm").style.display = "block";
+          }
+        };
+        xhr.send(JSON.stringify({chat_id: username, passwd: password }));
+      }
+      results = [];
+      var isSubmitting = false; 
+      function search() {
+        if (isSubmitting) {return;}
+        var searchTerm = document.getElementById("searchTerm").value;
+        if (searchTerm.length==0) {alert("No input");return false;}
+        isSubmitting=true
+        showLoading();
+        // Send an API request with the search term and the authentication token
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "https://ai.jing.lv:666/chat/");
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader("Authorization", "Bearer " + authToken);
+        xhr.withCredentials = true
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            // Parse the JSON response
+            var response = JSON.parse(xhr.responseText);
+
+            // Display the results on the page
+            var resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = "";
+            results.push(response.result);
+            for (let i = results.length -1; i >= 0; i--){
+                const result = results[i];
+                const resultDiv = document.createElement("div");
+                resultDiv.innerHTML = `<p style="white-space: pre-line;">${result}</p>`;
+                resultsDiv.appendChild(resultDiv);
+            }
+          }
+          completeLoading();
+          isSubmitting=false;
+        };
+        xhr.send(JSON.stringify({ content: searchTerm }));
+      }
+      function clearC() {
+        // Get the search term from the input field
+        var searchTerm = document.getElementById("searchTerm").value;
+
+        // Send an API request with the search term and the authentication token
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "https://ai.jing.lv:666/chat/");
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader("Authorization", "Bearer " + authToken);
+        xhr.withCredentials = true
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            // Parse the JSON response
+            var response = JSON.parse(xhr.responseText);
+
+            // Display the results on the page
+            var resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = "";
+            results=[]
+            results.push(response.result);
+            for (let i = results.length -1; i >= 0; i--){
+                const result = results[i];
+                const resultDiv = document.createElement("div");
+                resultDiv.innerHTML = `<p style="white-space: pre-line;">${result}</p>`;
+                resultsDiv.appendChild(resultDiv);
+            }
+          }
+        };
+        xhr.send(JSON.stringify({ content: ":q"}));
+      }
+    </script>
+  </head>
+  <body>
+    <div id="loginForm">
+      <label for="username">Username:</label>
+      <input type="text" id="username"><br>
+      <label for="password">Password:</label>
+      <input type="password" id="password"><br>
+      <button onclick="login()">Log in</button>
+    </div>
+
+    <div id="searchForm" style="display: none">
+      <label for="searchTerm">Input something to ask AI:</label>
+      <input type="text" id="searchTerm" onkeypress="if(event.keyCode==13) {document.getElementById('searchbtn').click();return false;}">
+      <button id="searchbtn" onclick="search()">Send</button>
+      <button onclick="clearC()">Clear context</button>
+      <div id="results"></div>
+    </div>
+  </body>
+</html>
+
