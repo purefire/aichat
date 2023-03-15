@@ -8,11 +8,14 @@ from gevent.pywsgi import WSGIServer
 from datetime import timedelta
 from geventwebsocket.handler import WebSocketHandler
 import logging
+import hashlib
+import chatconfig
 
+config = chatconfig.getConfig()
 # Set your API key
-openai.api_key = "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"
+openai.api_key = config["api_key"] 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'whAtahArdwOrdtogueSs'
+app.config['SECRET_KEY'] = config["SECRET_KEY"]
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = timedelta(seconds=1)
 
 if len(sys.argv) > 1:
@@ -102,8 +105,11 @@ def login():
      if not request.json or 'chat_id' not in request.json or 'passwd' not in request.json:
         print("login error: wrong input")
         abort(401)
-     if request.json['passwd'] != "purefireopenaiPass":
-     #"LetmeuseopenAI":
+     toHash = request.json['passwd']
+     hmd5 = hashlib.md5()
+     hmd5.update(toHash)
+     sig = hmd5.hexdigest().upper()
+     if sig != config["passwd"]:
         print("login error: wrong password")
         abort(401)
      chatID = request.json['chat_id']
@@ -116,5 +122,5 @@ def login():
 
 if __name__ == '__main__':
      logging.basicConfig(level=logging.INFO, filename='log.log',  filemode='w',    format="%(asctime)s:%(levelname)s:%(name)s -- %(message)s", datefmt="%Y/%m/%d %H:%M:%S"   )
-     http_server = WSGIServer(('0.0.0.0', 666), app, keyfile='/etc/letsencrypt/live/ai.jing.lv/privkey.pem', certfile='/etc/letsencrypt/live/ai.jing.lv/cert.pem',handler_class=WebSocketHandler)
+     http_server = WSGIServer(('0.0.0.0', 666), app, keyfile=config["keyfile"], certfile=config["certfile"],handler_class=WebSocketHandler)
      http_server.serve_forever()
