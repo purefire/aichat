@@ -9,9 +9,10 @@ from datetime import timedelta
 from geventwebsocket.handler import WebSocketHandler
 import logging
 import hashlib
-import chatconfig
+from conf.chatconfig import getConfig
 
-config = chatconfig.getConfig()
+# use your own config for api key, secret, etc
+config = getConfig()
 # Set your API key
 openai.api_key = config["api_key"] 
 app = Flask(__name__)
@@ -107,7 +108,7 @@ def login():
         abort(401)
      toHash = request.json['passwd']
      hmd5 = hashlib.md5()
-     hmd5.update(toHash)
+     hmd5.update(toHash.encode('utf-8'))
      sig = hmd5.hexdigest().upper()
      if sig != config["passwd"]:
         print("login error: wrong password")
