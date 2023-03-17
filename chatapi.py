@@ -19,51 +19,38 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = config["SECRET_KEY"]
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = timedelta(seconds=1)
 
-if len(sys.argv) > 1:
-    needVPN = sys.argv[1]
-else:
-    needVPN = "no"
-if needVPN == "-vpn":
-    # Configure the Python environment to use the VPN's proxy settings
-    os.environ["http_proxy"] = "http://localhost:1087"
-    os.environ["https_proxy"] = "http://localhost:1087"
-
 # Set the initial prompt and conversation history
 defaulthint = ["Be an expert.No repeat question.","Give short answer, explain only when asked.","Be a teacher, explain the answer."]
 hint=defaulthint[0]
 conversation_history = dict()
 logged = dict()
+basicContent = [{"role":"system", "content":hint}]
 
 def talkToOpenAI(chat_id, user_input):
     if chat_id in conversation_history:
         history = conversation_history[chat_id]
     else:
-        history = hint+"\n"
+        history = basicContent
     if user_input == ":q":
-        conversation_history[chat_id] = hint+"\n"
+        conversation_history[chat_id] = basicContent 
         return("Conversation reset.")
 
     # Add user input to the conversation history
-    history += f"You: {user_input}\n"
+    history.append({"role":"user", "content":user_input}) 
 
     # Set the new prompt with the conversation history
     prompt = history
 
     # Send the API request
-    response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=prompt,
-        max_tokens=500,
-        n=1,
-        stop=None,
-        temperature=0.5,
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo-0301",
+        messages=prompt,
     )
 
-    # Get the generated response
-    response_text = response.choices[0].text.strip()
+    response_text = response.choices[0]["message"]["content"]
 
     # Add the generated response to the conversation history
-    history += f"{response_text}\n"
+    history.append({"role":"assistant", "content":response_text})
     conversation_history[chat_id] = history
 
     # Print the generated response
@@ -81,9 +68,9 @@ def checkSession(chatID):
     return True
 
 @app.route("/")
-@app.route("/index.html")
+@app.route("/main.html")
 def index():
-    return render_template('index.html')
+    return render_template('main.html')
 
 @app.route('/chat/', methods=['POST'])
 def chat():
@@ -91,7 +78,6 @@ def chat():
         chatID = session['chat_id']
         if not checkSession(chatID):
             abort(401)
-        print("chatID"+str(chatID)+"talking")
         if not request.json or 'content' not in request.json:
             abort(401)
         reply = talkToOpenAI(session['chat_id'],request.json['content'])
