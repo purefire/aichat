@@ -2,7 +2,7 @@ import openai
 import os
 import sys
 import time
-from flask import Flask, render_template, abort, request, jsonify, session
+from flask import Flask, render_template, abort, request, jsonify, redirect, session
 from flask_cors import CORS
 from gevent.pywsgi import WSGIServer
 from datetime import timedelta
@@ -30,23 +30,33 @@ def talkToOpenAI(chat_id, user_input):
     if chat_id in conversation_history:
         history = conversation_history[chat_id]
     else:
-        history = basicContent
+        history = basicContent.copy()
     if user_input == ":q":
-        conversation_history[chat_id] = basicContent 
+        del conversation_history[chat_id]
+        conversation_history[chat_id] = basicContent.copy()
         return("Conversation reset.")
+    if user_input == ":size":
+        total=0
+        for v in history:
+            for key,value in v.items():
+                total=total+len(key)
+                total=total+len(value)
+        return("Current size:"+str(total))
 
     # Add user input to the conversation history
     history.append({"role":"user", "content":user_input}) 
 
     # Set the new prompt with the conversation history
     prompt = history
-
+    app.logger.info("Log prompt=%d",len(history))
     # Send the API request
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo-0301",
-        messages=prompt,
-    )
-
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo-0301",
+            messages=prompt,
+    	)
+    except Exception as e:
+        return ("error from ai:",str(e))
     response_text = response.choices[0]["message"]["content"]
 
     # Add the generated response to the conversation history
@@ -58,10 +68,10 @@ def talkToOpenAI(chat_id, user_input):
 
 def checkSession(chatID):
     if chatID not in logged:
-        print("chatID"+str(chatID)+"not exist")
+        app.logger.info("chatID"+str(chatID)+"not exist")
         return False
     if time.time() - logged[chatID] > 3600 *2:
-        print("chatID"+str(chatID)+"expired")
+        app.logger.info("chatID"+str(chatID)+"expired")
         del logged[chatID]
         return False
     logged[chatID] = time.time()
@@ -90,15 +100,15 @@ def chat():
 @app.route('/login/', methods=['POST'])
 def login():
      if not request.json or 'chat_id' not in request.json or 'passwd' not in request.json:
-        print("login error: wrong input")
-        abort(401)
+         app.logger.info("login error: wrong input")
+         abort(401)
      toHash = request.json['passwd']
      hmd5 = hashlib.md5()
      hmd5.update(toHash.encode('utf-8'))
      sig = hmd5.hexdigest().upper()
      if sig != config["passwd"]:
-        print("login error: wrong password")
-        abort(401)
+         app.logger.info("login error: wrong password=%s, name=%s",toHash,chat_id)
+         abort(401)
      chatID = request.json['chat_id']
      if checkSession(chatID):
          return jsonify({'error': "already existed."})

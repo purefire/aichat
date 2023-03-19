@@ -2,8 +2,13 @@
 <html>
   <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Quick access to AI Chat</title>
     <style>
+    * {
+      box-sizing: border-box;
+    }
       body {
         padding: 20px;
 	font-family: Arial, sans-serif;
@@ -26,10 +31,24 @@
         margin-bottom: 10px;
       }
 
+    .card {
+      background-color: #fff;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      width: 90%;
+      max-width: 400px;
+      padding: 20px;
+      text-align: center;
+    }
 
+    .logcontainer {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
                 .chat-box {
-                        height: 300px; /* 设置最小高度 */
-                        max-height: 70vh; /* 设置最大高度为窗口高度的70% */
+                        height: 80vh; /* 设置最小高度 */
                         overflow-y: auto; /* 自动出现滚动条 */
                         border: 1px solid #ccc;
                         border-radius: 10px;
@@ -84,14 +103,16 @@
                         }
                 }
 
-      input[type="password"] {
-        width: 100%;
-        padding: 10px;
-        border: none;
-        border-radius: 5px;
-        margin-bottom: 20px;
-        box-sizing: border-box;
-      }
+    input[type="username"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 20px;
+      border: none;
+      border-radius: 5px;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+      font-size: 16px;
+    }
 
       button {
         background-color: #4CAF50;
@@ -126,7 +147,10 @@
       var _LoadingHtml = '<div id="loadingDiv" style="display: none; "><div id="over" style=" position: fixed;top: 0;left: 0; width: 100%;height: 100%; background-color: #f5f5f5;opacity:0.5;z-index: 1000;"></div><div id="layout" style="position: fixed;top: 40%; left: 40%;width: 20%; height: 20%;  z-index: 1001;text-align:center;"><img src="/static/img/loading.gif" /></div></div>';
       var authToken;
       var count=0; 
-      
+
+      window.onbeforeunload = function (e) {    
+       var ev = window.event || e;
+       ev.returnValue = ("Are you sure to leave this page?");}      
       function completeLoading() { document.getElementById("loadingDiv").style.display="none";}
       function showLoading(){document.getElementById("loadingDiv").style.display="block";}
       document.write(_LoadingHtml);
@@ -149,9 +173,12 @@
             var response = JSON.parse(xhr.responseText);
             authToken = response.token;
             // Hide the login form and display the search form
-            document.getElementById("loginForm").style.display = "none";
+            document.getElementById("logcontainer").style.display = "none";
             document.getElementById("searchForm").style.display = "block";
           }
+          if (xhr.status === 401) {
+            alert("username or password error")
+          } 
         };
         xhr.send(JSON.stringify({chat_id: username, passwd: password }));
       }
@@ -177,16 +204,27 @@
             // Display the results on the page
             var resultsDiv = document.getElementById("results");
             resultsDiv.innerHTML = "";
-            results.push(response.result);
+            results.push(`<p style="white-space: pre-line;"><b>问题:</b>${searchTerm}</p>`);
+            results.push(`<p style="white-space: pre-line;"><b>回答:</b>${response.result}</p>`);
             for (let i = 0;i <= results.length -1;i++){ 
                 const result = results[i];
                 const resultDiv = document.createElement("div");
-                resultDiv.innerHTML = `<p style="white-space: pre-line;"><b>回答:</b>${result}</p>`;
+                resultDiv.innerHTML = result; 
                 resultsDiv.appendChild(resultDiv);
             }
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;  
+          }
+          if (xhr.status === 301 || xhr.status === 302) {
+            completeLoading();
+            isSubmtting = false;
+            window.location.href = response.request.responseURL;
+          }
+          if (xhr.status === 401) {
+            location.reload();
           }
           completeLoading();
           isSubmitting=false;
+          document.getElementById('searchTerm').value = ''
         };
         xhr.send(JSON.stringify({ content: searchTerm }));
       }
@@ -223,14 +261,15 @@
     </script>
   </head>
   <body>
-    <div id="loginForm">
+    <div id="logcontainer">
+     <div class="card">
       <label for="username">Username:</label>
-      <input type="text" id="username"><br>
+      <input type="username" id="username"><br>
       <label for="password">Password:</label>
       <input type="password" id="password"><br>
       <button onclick="login()">Log in</button>
     </div>
-
+    </div>
     <div id="searchForm" class="container" style="display: none">
                 <div class="chat-box" id="results">
                 </div>
